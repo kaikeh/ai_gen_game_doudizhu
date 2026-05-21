@@ -1,12 +1,40 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { Trophy, Coins } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { Card } from '../components/Card';
 import { identifyCardType, compareCards } from '../utils/gameLogic';
 
+// 牌型名称映射
+const cardTypeNames: Record<string, string> = {
+  single: '单张',
+  pair: '对子',
+  triple: '三张',
+  tripleWithOne: '三带一',
+  tripleWithTwo: '三带二',
+  straight: '顺子',
+  pairStraight: '连对',
+  fourWithTwo: '四带二',
+  bomb: '炸弹',
+  rocket: '王炸',
+};
+
 export default function Home() {
   const { gameState, startGame, callLandlord, selectCard, playCards, pass } = useGameStore();
+  const [playedCardType, setPlayedCardType] = useState<string>('');
+  
+  // 检测选中的牌型
+  React.useEffect(() => {
+    if (gameState.selectedCards.length > 0) {
+      const info = identifyCardType(gameState.selectedCards);
+      if (info) {
+        setPlayedCardType(cardTypeNames[info.type] || info.type);
+      } else {
+        setPlayedCardType('无效牌型');
+      }
+    } else {
+      setPlayedCardType('');
+    }
+  }, [gameState.selectedCards]);
   
   function canPlay() {
     if (gameState.phase !== 'playing') return false;
@@ -25,20 +53,21 @@ export default function Home() {
     // 否则需要能压过上家
     return compareCards(info, lastInfo);
   }
-
+  
   function canPass() {
     if (gameState.phase !== 'playing') return false;
     if (gameState.currentPlayer !== 0) return false;
     if (gameState.lastPlayedCards.length === 0) return false;
     return gameState.lastPlayer !== 0;
   }
-
+  
   function isGameOver() {
     return gameState.playerCoins <= 0;
   }
-
+  
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-800 via-green-900 to-black flex flex-col">
+      {/* 顶部信息栏 */}
       <div className="bg-black/30 backdrop-blur-sm p-4 flex justify-between items-center">
         <div className="flex items-center gap-2 text-yellow-400 font-bold text-xl">
           <Coins size={24} />
@@ -48,32 +77,21 @@ export default function Home() {
           底分: {gameState.baseScore}
         </div>
       </div>
-
-      <div className="flex-1 flex flex-col p-4 gap-4">
-        <div className="flex items-center justify-center gap-4">
-          <div className={gameState.players[1].isLandlord ? 'text-white font-bold px-4 py-2 rounded-lg bg-yellow-600' : 'text-white font-bold px-4 py-2 rounded-lg bg-black/40'}>
-            {gameState.players[1].name}
-            {gameState.players[1].isLandlord ? ' (地主)' : ''}
-          </div>
-          <div className="flex items-center gap-2">
-            {gameState.players[1].hand.map((_, index) => (
-              <div key={index} className="w-6 h-10 sm:w-8 sm:h-14 bg-gradient-to-br from-green-700 to-green-900 rounded shadow-md -ml-3 first:ml-0" />
-            ))}
-            <div className="ml-4 bg-black/50 text-yellow-400 px-3 py-1 rounded-full font-bold">
-              {gameState.players[1].hand.length}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex-1 flex flex-col items-center justify-center gap-4">
-          {gameState.phase === 'playing' && (
+      
+      {/* 牌桌区域 - 倒三角形布局 */}
+      <div className="flex-1 flex flex-col p-4 relative">
+        {/* 地主底牌区域 */}
+        {gameState.phase === 'playing' && (
+          <div className="flex justify-center mb-4">
             <div className="flex gap-1">
               {gameState.landlordCards.map((card, index) => (
                 <Card key={index} card={card} faceDown={false} />
               ))}
             </div>
-          )}
-          {gameState.phase === 'calling' && (
+          </div>
+        )}
+        {gameState.phase === 'calling' && gameState.landlordCards.length > 0 && (
+          <div className="flex justify-center mb-4">
             <div className="flex gap-1">
               {gameState.landlordCards.map((_, index) => (
                 <div key={index} className="w-12 h-16 sm:w-14 sm:h-20 rounded-lg bg-gradient-to-br from-green-700 to-green-900 shadow-md flex items-center justify-center">
@@ -81,78 +99,121 @@ export default function Home() {
                 </div>
               ))}
             </div>
-          )}
-
-          {gameState.lastPlayedCards.length > 0 && (
-            <div className="flex gap-1">
-              {gameState.lastPlayedCards.map((card, index) => (
-                <Card key={index} card={card} />
-              ))}
+          </div>
+        )}
+        
+        {/* 顶部：两个电脑玩家 */}
+        <div className="flex justify-between items-start">
+          {/* 电脑1 - 左上角 */}
+          <div className="flex flex-col items-center gap-2">
+            <div className={gameState.players[1].isLandlord ? 'text-white font-bold px-4 py-2 rounded-lg bg-yellow-600' : 'text-white font-bold px-4 py-2 rounded-lg bg-black/40'}>
+              {gameState.players[1].name}
+              {gameState.players[1].isLandlord ? ' (地主)' : ''}
             </div>
-          )}
-
-          {gameState.phase === 'playing' && (
-            <div className="text-yellow-400 font-bold text-lg">
-              {gameState.players[gameState.currentPlayer].name} 的回合
-            </div>
-          )}
-
-          {gameState.phase === 'waiting' && !isGameOver() && (
-            <button
-              onClick={startGame}
-              className="px-8 py-4 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white font-bold text-xl rounded-lg shadow-lg hover:from-yellow-600 hover:to-yellow-700 transition-all hover:scale-105"
-            >
-              开始游戏
-            </button>
-          )}
-
-          {gameState.phase === 'finished' && !isGameOver() && (
-            <div className="text-center">
-              <div className={gameState.winner === 0 ? 'text-3xl font-bold mb-4 text-green-400' : 'text-3xl font-bold mb-4 text-red-400'}>
-                {gameState.winner === 0 ? '恭喜你赢了！' : '你输了！'}
+            <div className="flex items-center gap-2">
+              <div className="bg-black/50 text-yellow-400 px-3 py-1 rounded-full font-bold">
+                {gameState.players[1].hand.length}张
               </div>
+              <div className="flex gap-1">
+                {gameState.players[1].hand.slice(0, 10).map((_, index) => (
+                  <div key={index} className="w-6 h-10 sm:w-8 sm:h-14 bg-gradient-to-br from-green-700 to-green-900 rounded shadow-md" />
+                ))}
+              </div>
+            </div>
+          </div>
+          
+          {/* 右上角：电脑2 */}
+          <div className="flex flex-col items-center gap-2">
+            <div className="flex items-center gap-2">
+              <div className="flex gap-1">
+                {gameState.players[2].hand.slice(0, 10).map((_, index) => (
+                  <div key={index} className="w-6 h-10 sm:w-8 sm:h-14 bg-gradient-to-br from-green-700 to-green-900 rounded shadow-md" />
+                ))}
+              </div>
+              <div className="bg-black/50 text-yellow-400 px-3 py-1 rounded-full font-bold">
+                {gameState.players[2].hand.length}张
+              </div>
+            </div>
+            <div className={gameState.players[2].isLandlord ? 'text-white font-bold px-4 py-2 rounded-lg bg-yellow-600' : 'text-white font-bold px-4 py-2 rounded-lg bg-black/40'}>
+              {gameState.players[2].name}
+              {gameState.players[2].isLandlord ? ' (地主)' : ''}
+            </div>
+          </div>
+        </div>
+        
+        {/* 中间区域：出牌信息和状态 */}
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            {/* 当前回合提示 */}
+            {gameState.phase === 'playing' && (
+              <div className="text-yellow-400 font-bold text-lg mb-4">
+                {gameState.players[gameState.currentPlayer].name} 的回合
+              </div>
+            )}
+            
+            {/* 最后出的牌 */}
+            {gameState.lastPlayedCards.length > 0 && (
+              <div className="flex flex-col items-center gap-2">
+                <div className="flex gap-1">
+                  {gameState.lastPlayedCards.map((card, index) => (
+                    <Card key={index} card={card} />
+                  ))}
+                </div>
+                {gameState.lastPlayer !== null && (
+                  <div className="text-white/70 text-sm">
+                    {gameState.players[gameState.lastPlayer].name} 出牌
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* 开始游戏按钮 */}
+            {gameState.phase === 'waiting' && !isGameOver() && (
               <button
                 onClick={startGame}
                 className="px-8 py-4 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white font-bold text-xl rounded-lg shadow-lg hover:from-yellow-600 hover:to-yellow-700 transition-all hover:scale-105"
               >
-                再来一局
+                开始游戏
               </button>
-            </div>
-          )}
-
-          {isGameOver() && (
-            <div className="text-center">
-              <Trophy size={64} className="mx-auto text-yellow-400 mb-4" />
-              <div className="text-3xl font-bold text-red-400 mb-4">
-                金币输光了！游戏结束！
+            )}
+            
+            {/* 游戏结束 */}
+            {gameState.phase === 'finished' && !isGameOver() && (
+              <div className="text-center">
+                <div className={gameState.winner === 0 ? 'text-3xl font-bold mb-4 text-green-400' : 'text-3xl font-bold mb-4 text-red-400'}>
+                  {gameState.winner === 0 ? '恭喜你赢了！' : '你输了！'}
+                </div>
+                <button
+                  onClick={startGame}
+                  className="px-8 py-4 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white font-bold text-xl rounded-lg shadow-lg hover:from-yellow-600 hover:to-yellow-700 transition-all hover:scale-105"
+                >
+                  再来一局
+                </button>
               </div>
-              <button
-                onClick={() => window.location.reload()}
-                className="px-8 py-4 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white font-bold text-xl rounded-lg shadow-lg hover:from-yellow-600 hover:to-yellow-700 transition-all hover:scale-105"
-              >
-                重新开始
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center justify-center gap-4">
-          <div className="flex items-center gap-2">
-            {gameState.players[2].hand.map((_, index) => (
-              <div key={index} className="w-6 h-10 sm:w-8 sm:h-14 bg-gradient-to-br from-green-700 to-green-900 rounded shadow-md -ml-3 first:ml-0" />
-            ))}
-            <div className="ml-4 bg-black/50 text-yellow-400 px-3 py-1 rounded-full font-bold">
-              {gameState.players[2].hand.length}
-            </div>
-          </div>
-          <div className={gameState.players[2].isLandlord ? 'text-white font-bold px-4 py-2 rounded-lg bg-yellow-600' : 'text-white font-bold px-4 py-2 rounded-lg bg-black/40'}>
-            {gameState.players[2].name}
-            {gameState.players[2].isLandlord ? ' (地主)' : ''}
+            )}
+            
+            {/* 金币输光 */}
+            {isGameOver() && (
+              <div className="text-center">
+                <Trophy size={64} className="mx-auto text-yellow-400 mb-4" />
+                <div className="text-3xl font-bold text-red-400 mb-4">
+                  金币输光了！游戏结束！
+                </div>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="px-8 py-4 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white font-bold text-xl rounded-lg shadow-lg hover:from-yellow-600 hover:to-yellow-700 transition-all hover:scale-105"
+                >
+                  重新开始
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
-
+      
+      {/* 底部：玩家手牌和控制按钮 */}
       <div className="bg-black/30 backdrop-blur-sm p-4">
+        {/* 玩家手牌 */}
         <div className="flex justify-center flex-wrap gap-1 mb-4">
           {gameState.players[0].hand.map((card) => (
             <Card
@@ -167,15 +228,28 @@ export default function Home() {
             />
           ))}
         </div>
-
+        
+        {/* 控制面板 */}
         <div className="flex items-center justify-between">
+          {/* 玩家信息 */}
           <div className={gameState.players[0].isLandlord ? 'text-white font-bold px-4 py-2 rounded-lg bg-yellow-600' : 'text-white font-bold px-4 py-2 rounded-lg bg-black/40'}>
             {gameState.players[0].name}
             {gameState.players[0].isLandlord ? ' (地主)' : ''}
             <span className="ml-2 text-yellow-300">({gameState.players[0].hand.length}张牌)</span>
           </div>
-
+          
+          {/* 中间：选中的牌型显示 */}
+          <div className="flex flex-col items-center gap-2">
+            {playedCardType && gameState.phase === 'playing' && (
+              <div className="bg-blue-600/80 text-white px-4 py-2 rounded-lg font-bold text-lg">
+                {playedCardType}
+              </div>
+            )}
+          </div>
+          
+          {/* 操作按钮 */}
           <div className="flex gap-3">
+            {/* 叫地主阶段 */}
             {gameState.phase === 'calling' && gameState.currentPlayer === 0 && (
               <>
                 <button
@@ -192,7 +266,8 @@ export default function Home() {
                 </button>
               </>
             )}
-
+            
+            {/* 出牌阶段 */}
             {gameState.phase === 'playing' && gameState.currentPlayer === 0 && (
               <>
                 {canPass() && (
