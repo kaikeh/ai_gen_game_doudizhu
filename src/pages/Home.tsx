@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Trophy, Coins } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { Card } from '../components/Card';
@@ -20,21 +20,6 @@ const cardTypeNames: Record<string, string> = {
 
 export default function Home() {
   const { gameState, startGame, callLandlord, selectCard, playCards, pass } = useGameStore();
-  const [playedCardType, setPlayedCardType] = useState<string>('');
-  
-  // 检测选中的牌型
-  React.useEffect(() => {
-    if (gameState.selectedCards.length > 0) {
-      const info = identifyCardType(gameState.selectedCards);
-      if (info) {
-        setPlayedCardType(cardTypeNames[info.type] || info.type);
-      } else {
-        setPlayedCardType('无效牌型');
-      }
-    } else {
-      setPlayedCardType('');
-    }
-  }, [gameState.selectedCards]);
   
   function canPlay() {
     if (gameState.phase !== 'playing') return false;
@@ -160,8 +145,16 @@ export default function Home() {
                   ))}
                 </div>
                 {gameState.lastPlayer !== null && (
-                  <div className="text-white/70 text-sm">
-                    {gameState.players[gameState.lastPlayer].name} 出牌
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="bg-blue-600/80 text-white px-4 py-1 rounded-lg font-bold text-lg">
+                      {(() => {
+                        const info = identifyCardType(gameState.lastPlayedCards);
+                        return info ? cardTypeNames[info.type] || info.type : '';
+                      })()}
+                    </div>
+                    <div className="text-white/70 text-sm">
+                      {gameState.players[gameState.lastPlayer].name} 出牌
+                    </div>
                   </div>
                 )}
               </div>
@@ -236,15 +229,6 @@ export default function Home() {
             {gameState.players[0].name}
             {gameState.players[0].isLandlord ? ' (地主)' : ''}
             <span className="ml-2 text-yellow-300">({gameState.players[0].hand.length}张牌)</span>
-          </div>
-          
-          {/* 中间：选中的牌型显示 */}
-          <div className="flex flex-col items-center gap-2">
-            {playedCardType && gameState.phase === 'playing' && (
-              <div className="bg-blue-600/80 text-white px-4 py-2 rounded-lg font-bold text-lg">
-                {playedCardType}
-              </div>
-            )}
           </div>
           
           {/* 操作按钮 */}
