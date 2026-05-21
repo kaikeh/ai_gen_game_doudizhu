@@ -144,7 +144,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         ? identifyCardType(newState.lastPlayedCards)
         : null;
       
-      if (lastInfo && newState.lastPlayer !== newState.currentPlayer) {
+      // 如果还没有出过牌，或者上一个出牌的是自己（新的一轮），直接可以出
+      if (lastInfo !== null && newState.lastPlayer !== newState.currentPlayer) {
         if (!compareCards(info, lastInfo)) return state;
       }
       

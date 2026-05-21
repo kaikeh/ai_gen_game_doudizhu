@@ -16,12 +16,14 @@ export default function Home() {
     const info = identifyCardType(selectedCards);
     if (!info) return false;
     const lastInfo = gameState.lastPlayedCards.length > 0 ? identifyCardType(gameState.lastPlayedCards) : null;
-    if (lastInfo !== null) {
-      if (gameState.lastPlayer !== 0) {
-        return compareCards(info, lastInfo);
-      }
+    
+    // 如果还没有出过牌，或者上一个出牌的是自己（新的一轮），直接可以出
+    if (lastInfo === null || gameState.lastPlayer === 0) {
+      return true;
     }
-    return true;
+    
+    // 否则需要能压过上家
+    return compareCards(info, lastInfo);
   }
 
   function canPass() {
