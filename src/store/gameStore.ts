@@ -215,8 +215,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
 function startGamePhase(newState: GameState, set: any, get: any) {
   if (newState.landlord !== null) {
     // 给地主发底牌
+    const landlordCards = [...newState.players[newState.landlord].hand, ...newState.landlordCards];
+    
+    // 对地主手牌进行排序（从大到小）
+    const sortedLandlordCards = landlordCards.sort((a, b) => b.value - a.value);
+    
     newState.players = newState.players.map((p, i) => 
-      i === newState.landlord ? { ...p, hand: [...p.hand, ...newState.landlordCards], isLandlord: true } : p
+      i === newState.landlord ? { ...p, hand: sortedLandlordCards, isLandlord: true } : p
     );
     newState.currentPlayer = newState.landlord;
     newState.phase = 'playing';
