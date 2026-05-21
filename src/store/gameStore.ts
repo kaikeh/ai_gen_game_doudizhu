@@ -62,52 +62,54 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   
   callLandlord: (call: boolean) => {
-    set((state) => {
-      const newState = { ...state.gameState };
+    const state = get().gameState;
+    let newState = { ...state };
+    
+    if (call) {
+      newState.landlord = newState.currentPlayer;
       
-      if (call) {
-        newState.landlord = newState.currentPlayer;
+      if (newState.baseScore < 3) {
+        newState.baseScore++;
+        newState.currentPlayer = (newState.currentPlayer + 1) % 3;
         
-        if (newState.baseScore < 3) {
-          newState.baseScore++;
-          newState.currentPlayer = (newState.currentPlayer + 1) % 3;
-          
-          setTimeout(() => {
-            const { gameState: currentState } = get();
-            if (currentState.players[currentState.currentPlayer].isAI) {
-              handleAICallLandlord(get, set);
-            }
-          }, 1000);
-        } else {
-          // 达到最高底分，直接开始游戏
-          startGamePhase(newState);
-        }
-      } else {
-        if (newState.landlord !== null) {
-          // 已经有人叫地主了，现在开始游戏
-          startGamePhase(newState);
-        } else {
-          newState.currentPlayer = (newState.currentPlayer + 1) % 3;
-          
-          if (newState.currentPlayer === 0) {
-            setTimeout(() => {
-              const { startGame } = get();
-              startGame();
-            }, 500);
-            return state;
+        set({ gameState: newState });
+        
+        setTimeout(() => {
+          const { gameState: currentState } = get();
+          if (currentState.players[currentState.currentPlayer].isAI) {
+            handleAICallLandlord(get, set);
           }
-          
-          setTimeout(() => {
-            const { gameState: currentState } = get();
-            if (currentState.players[currentState.currentPlayer].isAI) {
-              handleAICallLandlord(get, set);
-            }
-          }, 1000);
-        }
+        }, 1000);
+      } else {
+        // 达到最高底分，直接开始游戏
+        startGamePhase(newState, set, get);
       }
-      
-      return { gameState: newState };
-    });
+    } else {
+      if (newState.landlord !== null) {
+        // 已经有人叫地主了，现在开始游戏
+        startGamePhase(newState, set, get);
+      } else {
+        newState.currentPlayer = (newState.currentPlayer + 1) % 3;
+        
+        if (newState.currentPlayer === 0) {
+          set({ gameState: newState });
+          setTimeout(() => {
+            const { startGame } = get();
+            startGame();
+          }, 500);
+          return;
+        }
+        
+        set({ gameState: newState });
+        
+        setTimeout(() => {
+          const { gameState: currentState } = get();
+          if (currentState.players[currentState.currentPlayer].isAI) {
+            handleAICallLandlord(get, set);
+          }
+        }, 1000);
+      }
+    }
   },
   
   selectCard: (card: Card) => {
@@ -209,13 +211,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 }));
 
-function startGamePhase(newState: GameState) {
+function startGamePhase(newState: GameState, set: any, get: any) {
   if (newState.landlord !== null) {
     // 给地主发底牌
-    newState.players[newState.landlord].hand.push(...newState.landlordCards);
-    newState.players[newState.landlord].isLandlord = true;
+    newState.players = newState.players.map((p, i) => 
+      i === newState.landlord ? { ...p, hand: [...p.hand, ...newState.landlordCards], isLandlord: true } : p
+    );
     newState.currentPlayer = newState.landlord;
     newState.phase = 'playing';
+    
+    set({ gameState: newState });
+    
+    // 如果地主是AI，让它出牌
+    setTimeout(() => {
+      const { gameState: currentState } = get();
+      if (currentState.players[currentState.currentPlayer].isAI) {
+        handleAIPlay(get, set);
+      }
+    }, 1500);
   }
 }
 
