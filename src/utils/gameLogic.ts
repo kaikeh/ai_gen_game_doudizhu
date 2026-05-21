@@ -123,6 +123,12 @@ export const identifyCardType = (cards: Card[]): PlayedCardInfo | null => {
     }
   }
   
+  // 飞机牌型识别
+  const planeResult = identifyPlane(sorted);
+  if (planeResult) {
+    return planeResult;
+  }
+  
   return null;
 };
 
@@ -151,6 +157,79 @@ const isStraight = (values: number[]): boolean => {
   return true;
 };
 
+// 识别飞机牌型
+const identifyPlane = (sorted: Card[]): PlayedCardInfo | null => {
+  const rankCounts = getRankCounts(sorted);
+  const ranks = Object.keys(rankCounts);
+  
+  // 找出所有三张的牌
+  const tripleRanks = ranks.filter(r => rankCounts[r] === 3);
+  
+  if (tripleRanks.length < 2) return null;
+  
+  // 检查是否有连续的三张
+  const tripleValues = tripleRanks
+    .map(r => getCardValue(r as any))
+    .filter(v => v <= 14)
+    .sort((a, b) => a - b);
+  
+  if (tripleValues.length < 2) return null;
+  
+  // 找最长的三连飞机
+  for (let tripleCount = tripleValues.length; tripleCount >= 2; tripleCount--) {
+    for (let start = 0; start <= tripleValues.length - tripleCount; start++) {
+      const selectedTriples = tripleValues.slice(start, start + tripleCount);
+      let isConsecutive = true;
+      
+      for (let i = 1; i < selectedTriples.length; i++) {
+        if (selectedTriples[i] !== selectedTriples[i - 1] + 1) {
+          isConsecutive = false;
+          break;
+        }
+      }
+      
+      if (!isConsecutive) continue;
+      
+      const totalCards = selectedTriples.length * 3;
+      const wingsCount = sorted.length - totalCards;
+      
+      // 纯飞机（不带翅膀）
+      if (sorted.length === totalCards) {
+        const minTripleValue = selectedTriples[0];
+        return { type: 'plane', cards: sorted, value: minTripleValue };
+      }
+      
+      // 飞机带翅膀
+      if (wingsCount > 0 && wingsCount === selectedTriples.length) {
+        // 飞机带单翅
+        const wingCards = sorted.filter(c => !selectedTriples.includes(getCardValueFromCard(c)));
+        const minWingValue = Math.min(...wingCards.map(c => c.value));
+        return { type: 'planeWithWings', cards: sorted, value: minTripleValue };
+      }
+      
+      if (wingsCount > 0 && wingsCount === selectedTriples.length * 2) {
+        // 飞机带对翅
+        const wingCardsForPairs = sorted.filter(c => !selectedTriples.includes(getCardValueFromCard(c)));
+        const wingRanks = [...new Set(wingCardsForPairs.map(c => c.rank))];
+        if (wingRanks.every(r => rankCounts[r] === 2)) {
+          const minWingValue = Math.min(...wingCardsForPairs.map(c => c.value));
+          return { type: 'planeWithWings', cards: sorted, value: minTripleValue };
+        }
+      }
+    }
+  }
+  
+  return null;
+};
+
+const getCardValueFromCard = (card: Card): number => {
+  const values: Record<string, number> = {
+    '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10,
+    'J': 11, 'Q': 12, 'K': 13, 'A': 14, '2': 15, '小王': 16, '大王': 17,
+  };
+  return values[card.rank] || card.value;
+};
+
 export const compareCards = (newCards: PlayedCardInfo, lastCards: PlayedCardInfo | null): boolean => {
   if (!lastCards) return true;
   
@@ -159,6 +238,30 @@ export const compareCards = (newCards: PlayedCardInfo, lastCards: PlayedCardInfo
   
   if (newCards.type === 'bomb' && lastCards.type !== 'bomb') return true;
   if (lastCards.type === 'bomb' && newCards.type !== 'bomb') return false;
+  
+  // 飞机和飞机比较
+  if (newCards.type === 'plane' && lastCards.type === 'plane') {
+    if (newCards.cards.length === lastCards.cards.length) {
+      return newCards.value > lastCards.value;
+    }
+    return false;
+  }
+  
+  if (newCards.type === 'planeWithWings' && lastCards.type === 'planeWithWings') {
+    if (newCards.cards.length === lastCards.cards.length) {
+      return newCards.value > lastCards.value;
+    }
+    return false;
+  }
+  
+  // 纯飞机可以炸飞机带翅膀（或者反过来）
+  if ((newCards.type === 'plane' && lastCards.type === 'planeWithWings') ||
+      (newCards.type === 'planeWithWings' && lastCards.type === 'plane')) {
+    if (newCards.cards.length === lastCards.cards.length) {
+      return newCards.value > lastCards.value;
+    }
+    return false;
+  }
   
   if (newCards.type === lastCards.type && newCards.cards.length === lastCards.cards.length) {
     return newCards.value > lastCards.value;
