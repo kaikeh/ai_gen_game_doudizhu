@@ -66,6 +66,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const newState = { ...state.gameState };
       
       if (call) {
+        newState.landlord = newState.currentPlayer;
+        
         if (newState.baseScore < 3) {
           newState.baseScore++;
           newState.currentPlayer = (newState.currentPlayer + 1) % 3;
@@ -77,16 +79,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
             }
           }, 1000);
         } else {
-          newState.landlord = newState.currentPlayer;
-          newState.phase = 'playing';
-          newState.players[newState.currentPlayer].hand.push(...newState.landlordCards);
-          newState.players[newState.currentPlayer].isLandlord = true;
+          // 达到最高底分，直接开始游戏
+          startGamePhase(newState);
         }
       } else {
         if (newState.landlord !== null) {
-          newState.phase = 'playing';
-          newState.players[newState.landlord].hand.push(...newState.landlordCards);
-          newState.players[newState.landlord].isLandlord = true;
+          // 已经有人叫地主了，现在开始游戏
+          startGamePhase(newState);
         } else {
           newState.currentPlayer = (newState.currentPlayer + 1) % 3;
           
@@ -209,6 +208,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
   },
 }));
+
+function startGamePhase(newState: GameState) {
+  if (newState.landlord !== null) {
+    // 给地主发底牌
+    newState.players[newState.landlord].hand.push(...newState.landlordCards);
+    newState.players[newState.landlord].isLandlord = true;
+    newState.currentPlayer = newState.landlord;
+    newState.phase = 'playing';
+  }
+}
 
 const handleAICallLandlord = (get: () => GameStore, set: any) => {
   const { gameState, callLandlord } = get();

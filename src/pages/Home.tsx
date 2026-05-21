@@ -67,7 +67,16 @@ export default function Home() {
           {gameState.phase === 'playing' && (
             <div className="flex gap-1">
               {gameState.landlordCards.map((card, index) => (
-                <Card key={index} card={card} faceDown={gameState.landlord !== null} />
+                <Card key={index} card={card} faceDown={false} />
+              ))}
+            </div>
+          )}
+          {gameState.phase === 'calling' && (
+            <div className="flex gap-1">
+              {gameState.landlordCards.map((_, index) => (
+                <div key={index} className="w-12 h-16 sm:w-14 sm:h-20 rounded-lg bg-gradient-to-br from-green-700 to-green-900 shadow-md flex items-center justify-center">
+                  <div className="text-white text-2xl font-bold opacity-70">🎴</div>
+                </div>
               ))}
             </div>
           )}
