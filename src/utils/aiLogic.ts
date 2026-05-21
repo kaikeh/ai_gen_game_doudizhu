@@ -193,6 +193,14 @@ const generateAllCombinations = (cards: Card[]): Card[][] => {
   const pairStraight = findPairStraight(cards, rankCounts);
   if (pairStraight) result.push(pairStraight);
   
+  // 10. 飞机
+  const plane = findPlane(cards, rankCounts);
+  if (plane) result.push(plane);
+  
+  // 11. 飞机带翅膀
+  const planeWithWings = findPlaneWithWings(cards, rankCounts);
+  if (planeWithWings) result.push(...planeWithWings);
+  
   return result;
 };
 
@@ -304,6 +312,103 @@ const findTriplePlay = (cards: Card[], rankCounts: Record<string, number>): Card
     
     // 最后只出三张
     return tripleCards;
+  }
+  
+  return null;
+};
+
+// 找飞机
+const findPlane = (cards: Card[], rankCounts: Record<string, number>): Card[] | null => {
+  const tripleRanks = Object.entries(rankCounts)
+    .filter(([_, c]) => c === 3)
+    .map(([rank]) => {
+      const card = cards.find(c => c.rank === rank)!;
+      return { rank, value: card.value };
+    })
+    .filter(r => r.value <= 14)
+    .sort((a, b) => a.value - b.value);
+  
+  if (tripleRanks.length >= 2) {
+    // 找连续的三张
+    for (let start = 0; start <= tripleRanks.length - 2; start++) {
+      const triple1 = tripleRanks[start];
+      const triple2 = tripleRanks[start + 1];
+      
+      if (triple2.value === triple1.value + 1) {
+        const cards1 = cards.filter(c => c.rank === triple1.rank);
+        const cards2 = cards.filter(c => c.rank === triple2.rank);
+        
+        // 如果有更多的连续三张，也要包含
+        const planeCards = [...cards1, ...cards2];
+        
+        for (let i = start + 2; i < tripleRanks.length; i++) {
+          if (tripleRanks[i].value === tripleRanks[i-1].value + 1) {
+            const moreCards = cards.filter(c => c.rank === tripleRanks[i].rank);
+            planeCards.push(...moreCards);
+          } else {
+            break;
+          }
+        }
+        
+        return planeCards;
+      }
+    }
+  }
+  
+  return null;
+};
+
+// 找飞机带翅膀
+const findPlaneWithWings = (cards: Card[], rankCounts: Record<string, number>): Card[][] | null => {
+  const tripleRanks = Object.entries(rankCounts)
+    .filter(([_, c]) => c === 3)
+    .map(([rank]) => {
+      const card = cards.find(c => c.rank === rank)!;
+      return { rank, value: card.value };
+    })
+    .filter(r => r.value <= 14)
+    .sort((a, b) => a.value - b.value);
+  
+  if (tripleRanks.length >= 2) {
+    const results: Card[][] = [];
+    
+    // 找连续的三张
+    for (let start = 0; start <= tripleRanks.length - 2; start++) {
+      const planeCards: Card[] = [];
+      
+      for (let i = start; i < tripleRanks.length && (i === start || tripleRanks[i].value === tripleRanks[i-1].value + 1); i++) {
+        const moreCards = cards.filter(c => c.rank === tripleRanks[i].rank);
+        planeCards.push(...moreCards);
+      }
+      
+      if (planeCards.length >= 6) {
+        // 找翅膀
+        const remainingCards = cards.filter(c => !planeCards.some(pc => pc.id === c.id));
+        
+        // 飞机带单翅
+        if (remainingCards.length >= planeCards.length / 3) {
+          const singleWings = remainingCards.slice(0, planeCards.length / 3);
+          results.push([...planeCards, ...singleWings]);
+        }
+        
+        // 飞机带对翅
+        const pairRanks = Object.entries(rankCounts)
+          .filter(([r, c]) => c >= 2 && !planeCards.some(pc => pc.rank === r));
+        
+        if (pairRanks.length >= planeCards.length / 3) {
+          const pairWings: Card[] = [];
+          for (let i = 0; i < planeCards.length / 3 && i < pairRanks.length; i++) {
+            const pairCards = remainingCards.filter(c => c.rank === pairRanks[i][0]).slice(0, 2);
+            pairWings.push(...pairCards);
+          }
+          if (pairWings.length === planeCards.length / 3 * 2) {
+            results.push([...planeCards, ...pairWings]);
+          }
+        }
+      }
+    }
+    
+    return results.length > 0 ? results : null;
   }
   
   return null;

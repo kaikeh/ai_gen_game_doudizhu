@@ -13,6 +13,8 @@ const cardTypeNames: Record<string, string> = {
   tripleWithTwo: '三带二',
   straight: '顺子',
   pairStraight: '连对',
+  plane: '飞机',
+  planeWithWings: '飞机带翅膀',
   fourWithTwo: '四带二',
   bomb: '炸弹',
   rocket: '王炸',
